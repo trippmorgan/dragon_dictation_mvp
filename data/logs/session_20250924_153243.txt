@@ -1,0 +1,39 @@
+[2025-09-24T15:32:43.450189] Loading Whisper model 'small.en'...
+[2025-09-24T15:33:40.993532] Dragon-like Dictation Pro is running.
+[2025-09-24T15:33:40.994084]  - Model: small.en
+[2025-09-24T15:33:40.994534]  - Press and hold 'F9' to dictate.
+[2025-09-24T15:33:40.994969]  - Say 'insert <macro_name>' to start.
+[2025-09-24T15:33:40.995418]  - Press 'ESC' to quit.
+[2025-09-24T15:33:40.995794] --------------------
+[2025-09-24T15:33:59.308997] Recording started... (Release to stop)
+[2025-09-24T15:34:00.382503] Recording stopped. Transcribing...
+[2025-09-24T15:34:36.145881] Recognized: 'dv.'
+[2025-09-24T15:34:44.344704] Recording started... (Release to stop)
+[2025-09-24T15:34:45.284560] Recording stopped. Transcribing...
+[2025-09-24T15:34:49.086836] Recognized: ''
+[2025-09-24T15:34:53.780534] Recording started... (Release to stop)
+[2025-09-24T15:34:54.773278] Recording stopped. Transcribing...
+[2025-09-24T15:34:57.924033] Recognized: 'is-'
+[2025-09-24T15:35:02.247341] Recording started... (Release to stop)
+[2025-09-24T15:35:03.104072] Recording stopped. Transcribing...
+[2025-09-24T15:36:18.857666] Recognized: ''
+[2025-09-24T15:36:19.071696] Recording started... (Release to stop)
+[2025-09-24T15:36:33.443396] Recording stopped. Transcribing...
+[2025-09-24T15:36:37.453890] Recognized: 'orteriogram, insert, bilateral, arteriogram,'
+[2025-09-24T16:06:45.755187] Recording started... (Release to stop)
+[2025-09-24T16:06:45.860776] Recording stopped. Transcribing...
+[2025-09-24T16:06:45.861418] No audio data recorded.
+[2025-09-24T16:07:06.387186] Recording started... (Release to stop)
+[2025-09-24T16:07:06.493577] Recording stopped. Transcribing...
+[2025-09-24T16:07:06.494119] No audio data recorded.
+[2025-09-24T16:07:11.387164] Recording started... (Release to stop)
+[2025-09-24T16:07:11.492338] Recording stopped. Transcribing...
+[2025-09-24T16:07:11.492746] No audio data recorded.
+[2025-09-24T16:07:16.250124] Recording started... (Release to stop)
+[2025-09-24T16:07:16.356459] Recording stopped. Transcribing...
+[2025-09-24T16:07:16.357019] No audio data recorded.
+[2025-09-24T16:07:17.997790] Recording started... (Release to stop)
+[2025-09-24T16:07:18.100981] Recording stopped. Transcribing...
+[2025-09-24T16:07:18.101383] No audio data recorded.
+[2025-09-24T16:07:20.187936] Recording started... (Release to stop)
+[2025-09-24T16:07:21.360353] Recording stopped. Transcribing...
