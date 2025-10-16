@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
 """
-Dragon-like Dictation Pro (Version 3.0 - GUI Edition)
+Dragon-like Dictation Pro (Version 4.0 - GPU Client Edition)
 
 What's New:
-- 🖥️ GUI Window: Dictated text now appears in a dedicated pop-up window using Tkinter.
-- ⏯️ Toggle Recording: Press 'r' to start recording, press 'r' again to stop. No more holding a key down.
-- 🎨 Status Bar: The GUI window shows the current status (Idle, Recording, Transcribing).
-- 📋 Copy Button: A simple button to copy the entire note to your clipboard.
--  threading for a responsive UI while the model works.
+- 🌐 Networked Transcription: Now sends audio to a dedicated GPU backend server.
+- ⚡ Lightweight Client: No local Whisper model is loaded, making the GUI start instantly and use minimal resources.
+- 🔧 Simplified Code: Removed local model management and related CLI arguments.
+-  robust error handling for network issues.
 
 Dependencies:
-  - Your 'dragon_dictation' conda env should be sufficient. Tkinter is usually built-in.
-  - If you are on a barebones Linux, you might need: `sudo apt-get install python3-tk`
+  - You will need to add the 'requests' library: `pip install requests`
+  - All other dependencies from the previous version remain.
 
-Author: ChatGPT
+Author: ChatGPT & joevoldemort
 """
-import argparse
 import json
 import os
 import re
@@ -34,15 +32,9 @@ from tkinter import scrolledtext
 import numpy as np
 import sounddevice as sd
 import soundfile as sf
-from dateutil.parser import parse as parse_date
 from pynput import keyboard
 import pyperclip
-
-try:
-    from faster_whisper import WhisperModel
-except ImportError:
-    print("\n[ERROR] faster-whisper not installed. In your conda env, run:\n  pip install faster-whisper\n", file=sys.stderr)
-    sys.exit(1)
+import requests # <-- ADDED for network requests
 
 # --- Configuration ---
 DEFAULT_SR = 16000
@@ -50,21 +42,23 @@ CHANNELS = 1
 TOGGLE_KEY = 'r'
 CONFIG_DIR = Path("config")
 
+# IMPORTANT: This is the Tailscale IP of your GPU server.
+SERVER_URL = "http://100.101.184.20:5005/transcribe"
+
 class DictationApp:
-    def __init__(self, model_size="small.en", device="auto", compute_type="default"):
+    def __init__(self):
         self.is_recording = False
         self.recorder = Recorder()
         self.macros = self._load_json(CONFIG_DIR / "macros.json")
-        self.hotwords = self._load_hotwords(CONFIG_DIR / "hotwords.txt")
+        self.hotwords = self._load_hotwords(CONFIG_DIR / "hotwords.txt") # This can be removed if you handle prompts server-side
         self.transcription_queue = queue.Queue()
 
-        print(f"Loading Whisper model '{model_size}'...")
-        self.model = WhisperModel(model_size, device=device, compute_type=compute_type)
-        print("Model loaded successfully.")
+        print("Dragon Dictation Pro - GPU Client")
+        print(f"Connecting to backend server at: {SERVER_URL}")
 
         # --- GUI Setup ---
         self.root = tk.Tk()
-        self.root.title("Medical Dictation Assistant")
+        self.root.title("Medical Dictation Assistant (GPU Client)")
         self.root.geometry("800x600")
 
         self.text_widget = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, font=("Arial", 12))
@@ -95,27 +89,42 @@ class DictationApp:
     def toggle_recording(self):
         if self.is_recording:
             # --- Stop Recording ---
-            self.update_status("Transcribing...", "orange")
+            self.update_status("Sending to GPU server...", "orange")
             self.is_recording = False
             audio_file = self.recorder.stop_recording()
             if audio_file:
-                # Transcribe in a separate thread to not freeze the GUI
-                threading.Thread(target=self.transcribe_audio_thread, args=(audio_file,), daemon=True).start()
+                # Transcribe on the remote server in a separate thread
+                threading.Thread(target=self.transcribe_audio_remote_thread, args=(audio_file,), daemon=True).start()
         else:
             # --- Start Recording ---
             self.update_status("Recording...", "red")
             self.is_recording = True
             self.recorder.start_recording()
             
-    def transcribe_audio_thread(self, audio_path: str):
-        """Runs in a background thread."""
-        initial_prompt = ", ".join(self.hotwords)
-        segments, _ = self.model.transcribe(audio_path, beam_size=5, initial_prompt=initial_prompt)
-        os.remove(audio_path)
-        
-        full_text = "".join(segment.text for segment in segments).strip()
-        # Put the result in a queue to safely pass it to the main GUI thread
-        self.transcription_queue.put(full_text)
+    def transcribe_audio_remote_thread(self, audio_path: str):
+        """Sends audio to the remote server and puts the result in the queue."""
+        try:
+            with open(audio_path, 'rb') as f:
+                files = {'file': (os.path.basename(audio_path), f, 'audio/wav')}
+                response = requests.post(SERVER_URL, files=files, timeout=20) # 20-second timeout
+
+            response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+
+            result = response.json()
+            full_text = result.get("text", "").strip()
+            self.transcription_queue.put(full_text)
+
+        except requests.exceptions.RequestException as e:
+            error_message = f"ERROR: Could not connect to server: {e}"
+            print(error_message, file=sys.stderr)
+            self.transcription_queue.put(error_message)
+        except Exception as e:
+            error_message = f"ERROR: An unexpected error occurred: {e}"
+            print(error_message, file=sys.stderr)
+            self.transcription_queue.put(error_message)
+        finally:
+            # Clean up the temporary audio file
+            os.remove(audio_path)
     
     def process_queue(self):
         """Checks the queue for transcribed text and updates the GUI."""
@@ -130,6 +139,10 @@ class DictationApp:
 
     def process_command(self, text: str):
         """Processes the transcribed text for commands or appends it."""
+        if text.startswith("ERROR:"):
+             self.update_status(text, "red")
+             return
+
         # Clean the text for better command matching
         text_lower_clean = text.lower().strip().replace(".", "").replace(",", "")
         
@@ -169,14 +182,11 @@ class DictationApp:
 
     def start_app(self):
         """Starts the keyboard listener and the GUI main loop."""
-        # Run keyboard listener in a separate thread
         listener_thread = threading.Thread(target=self.start_keyboard_listener, daemon=True)
         listener_thread.start()
         
-        # Start processing the queue
         self.process_queue()
         
-        # Start the GUI
         print("GUI is running. The dictation window should be open.")
         print("Press 'r' in any application to toggle recording.")
         self.root.mainloop()
@@ -187,7 +197,7 @@ class DictationApp:
                 if key.char == TOGGLE_KEY:
                     self.toggle_recording()
             except AttributeError:
-                pass # Ignore special keys like Shift, Ctrl, etc.
+                pass
         
         with keyboard.Listener(on_press=on_press) as listener:
             listener.join()
@@ -223,13 +233,7 @@ class Recorder:
         return temp_file
 
 def main():
-    parser = argparse.ArgumentParser(description="Dragon-like Medical Dictation App (GUI Edition)")
-    parser.add_argument("--model", default="small.en", help="Faster-Whisper model size")
-    parser.add_argument("--device", default="auto", help="Device ('cpu', 'cuda', 'auto')")
-    parser.add_argument("--compute_type", default="default", help="Compute type ('int8', 'float16', 'float32')")
-    args = parser.parse_args()
-
-    app = DictationApp(model_size=args.model, device=args.device, compute_type=args.compute_type)
+    app = DictationApp()
     app.start_app()
 
 if __name__ == "__main__":
