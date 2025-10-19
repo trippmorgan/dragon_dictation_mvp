@@ -44,6 +44,7 @@ CONFIG_DIR = Path("config")
 
 # IMPORTANT: This is the Tailscale IP of your GPU server.
 SERVER_URL = "http://100.101.184.20:5005/transcribe"
+USE_REMOTE = True
 
 class DictationApp:
     def __init__(self):
